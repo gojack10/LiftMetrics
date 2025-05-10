@@ -1,0 +1,8 @@
+[package]
+name = "LiftMetrics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.31.1"
+rusqlite = "0.35.0"
