@@ -1,5 +1,6 @@
 use crate::app_state::MyApp;
 use eframe::egui;
+use egui_extras::DatePickerButton; // Added for date picker
 use rusqlite;
 use chrono;
 use std::time::Instant;
@@ -21,6 +22,14 @@ pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
         ui.label(format!("active diet cycle id: {}", app.active_diet_cycle_id.unwrap()));
         
         ui.add_space(10.0);
+
+        // Date Picker for Weigh-in Date
+        ui.horizontal(|ui| {
+            ui.label("Weigh-in Date:");
+            ui.add(DatePickerButton::new(&mut app.selected_weigh_in_date));
+        });
+        ui.add_space(5.0); // Add a little space after the date picker
+
         ui.horizontal(|ui| {
             ui.label("Weight (lbs):");
             ui.add(egui::TextEdit::singleline(&mut app.log_weight_input_lbs).desired_width(100.0));
@@ -37,7 +46,8 @@ pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
                             if let Some(conn_mutex) = &app.db_conn {
                                 match conn_mutex.lock() {
                                     Ok(conn) => {
-                                        let log_date_str = chrono::Local::now().date_naive().format("%Y-%m-%d").to_string();
+                                        // Use the selected weigh-in date
+                                        let log_date_str = app.selected_weigh_in_date.format("%Y-%m-%d").to_string();
                                         match conn.execute(
                                             "INSERT INTO weight_logs (diet_cycle_id, log_date, weight_lbs) VALUES (?1, ?2, ?3)",
                                             rusqlite::params![active_cycle_id, log_date_str, weight_val],
@@ -102,4 +112,4 @@ pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
         }
     }
     app.display_status_message(ui);
-} 
+}

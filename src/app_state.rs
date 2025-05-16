@@ -19,16 +19,19 @@ pub struct MyApp {
     pub(crate) new_diet_planned_end_date: String,
     pub(crate) active_diet_cycle_id: Option<i64>,
     pub(crate) log_exercise_date: NaiveDate,
+    pub(crate) selected_weigh_in_date: NaiveDate, // Added for weigh-in date picker
     pub(crate) all_exercises_for_dropdown: Vec<(i64, String)>,
     pub(crate) status_message: String,
     pub(crate) last_status_time: Instant,
     pub(crate) recent_weight_logs: Vec<(String, f64)>,
+    pub(crate) previous_active_tab: Option<Tab>, // Added to track tab changes for date reset, made pub(crate)
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
             active_tab: Tab::default(),
+            previous_active_tab: None, // Initialize previous_active_tab
             db_conn: None,
             log_weight_input_lbs: String::default(),
             show_diet_cycle_popup: false,
@@ -37,6 +40,7 @@ impl Default for MyApp {
             new_diet_planned_end_date: String::default(),
             active_diet_cycle_id: None,
             log_exercise_date: chrono::Local::now().date_naive(),
+            selected_weigh_in_date: chrono::Local::now().date_naive(), // Initialize selected_weigh_in_date
             all_exercises_for_dropdown: Vec::default(),
             status_message: String::default(),
             last_status_time: Instant::now(),
@@ -54,6 +58,15 @@ impl App for MyApp {
         // Call the diet cycle popup renderer from the ui module
         crate::ui::popups::diet_cycle_popup::render(self, ctx);
 
+        // Logic to reset weigh-in date when LogWeight tab becomes active
+        if self.active_tab == Tab::LogWeight {
+            if self.previous_active_tab.is_none() || self.previous_active_tab != Some(Tab::LogWeight) {
+                self.selected_weigh_in_date = chrono::Local::now().date_naive();
+            }
+        }
+        self.previous_active_tab = Some(self.active_tab);
+
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("LifeMetrics");
             ui.add_space(10.0);
@@ -69,7 +82,10 @@ impl App for MyApp {
             ui.add_space(10.0);
 
             match self.active_tab {
-                Tab::LogWeight => crate::ui::tabs::log_weight_tab::render(self, ui, ctx),
+                Tab::LogWeight => {
+                    // selected_weigh_in_date is already reset if tab just became active
+                    crate::ui::tabs::log_weight_tab::render(self, ui, ctx);
+                }
                 Tab::LogExercise => crate::ui::tabs::log_exercise_tab::render(self, ui, ctx),
                 Tab::WeightProgress => crate::ui::tabs::weight_progress_tab::render(self, ui, ctx),
                 Tab::ExerciseProgress => crate::ui::tabs::exercise_progress_tab::render(self, ui, ctx),
