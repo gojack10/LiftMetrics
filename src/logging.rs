@@ -48,7 +48,7 @@ pub fn init_logger(sender: Sender<String>) {
             // Customize the log message format
             writeln!(
                 buf,
-                "[{}] {}",
+                "$ [{}] {}",
                 record.level(),
                 record.args()
             )
