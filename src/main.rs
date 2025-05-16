@@ -1,6 +1,5 @@
 use eframe::{App, NativeOptions};
 use eframe::egui;
-// use egui_plot::PlotMemory; // Removed unused import
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -43,8 +42,6 @@ impl Display for DietPhase {
 enum ExerciseMetric {
     #[default]
     Weight,
-    Reps,
-    Volume,
 }
 
 impl Display for ExerciseMetric {
@@ -53,21 +50,6 @@ impl Display for ExerciseMetric {
     }
 }
 
-#[derive(Default, Clone, Debug)]
-struct SetEntry {
-    reps: i32,
-    weight_lbs: f64,
-    rpe: Option<f64>,
-    notes: Option<String>,
-}
-
-#[derive(Clone, Debug)] // Removed Default from ExerciseLogEntry for consistency if it wasn't used, but it's fine. Let's assume it's fine.
-struct ExerciseLogEntry { // Keeping Default here as it's not the one causing issues.
-    exercise_name: String,
-    sets: Vec<SetEntry>,
-}
-
-// Removed #[derive(Default)]
 struct MyApp {
     active_tab: Tab,
     db_conn: Option<Arc<Mutex<Connection>>>,
@@ -78,18 +60,8 @@ struct MyApp {
     new_diet_planned_end_date: String, // Should be YYYY-MM-DD
     active_diet_cycle_id: Option<i64>,
     log_exercise_date: NaiveDate, // Already initialized to today
-    current_exercises_log: Vec<ExerciseLogEntry>,
-    exercise_name_input_buffer: String,
-    available_exercise_names: Vec<String>,
-    weight_progress_data: Vec<(f64, f64)>,
-    smoothed_weight_progress_data: Vec<(f64, f64)>,
-    // weight_plot_memory: PlotMemory, // Removed
-    exercise_progress_selected_exercise_id: Option<i64>,
-    all_exercises_for_dropdown: Vec<(i64, String)>,
-    exercise_progress_data: Vec<(f64, f64)>,
-    smoothed_exercise_progress_data: Vec<(f64, f64)>,
-    // exercise_plot_memory: PlotMemory, // Removed
-    selected_exercise_metric: ExerciseMetric,
+    all_exercises_for_dropdown: Vec<(i64, String)>, // This one is used in main
+    // selected_exercise_metric: ExerciseMetric, // Removed dead_code
     status_message: String,
     last_status_time: Instant,
     recent_weight_logs: Vec<(String, f64)>, // For (log_date, weight_lbs)
@@ -107,19 +79,8 @@ impl Default for MyApp {
             new_diet_planned_end_date: String::default(),
             active_diet_cycle_id: None,
             log_exercise_date: chrono::Local::now().date_naive(),
-            current_exercises_log: Vec::default(),
-            exercise_name_input_buffer: String::default(),
-            available_exercise_names: Vec::default(),
-            weight_progress_data: Vec::default(),
-            smoothed_weight_progress_data: Vec::default(),
-            // weight_plot_memory: PlotMemory::default(), // Removed
-            exercise_progress_selected_exercise_id: None,
-            all_exercises_for_dropdown: Vec::default(),
-            exercise_progress_data: Vec::default(),
-            smoothed_exercise_progress_data: Vec::default(),
-            // exercise_plot_memory: PlotMemory::default(), // Removed
-            selected_exercise_metric: ExerciseMetric::default(),
-            status_message: String::default(),
+            all_exercises_for_dropdown: Vec::default(), // This one is used in main
+                    status_message: String::default(),
             last_status_time: Instant::now(),
             recent_weight_logs: Vec::default(),
         }
@@ -477,7 +438,6 @@ fn main() {
 
     let mut app = MyApp {
         db_conn: Some(db_conn.clone()), // Clone Arc for app
-        // log_exercise_date and last_status_time will be set by Default::default()
         recent_weight_logs: Vec::new(), // Explicitly initialize, though Default would also make it empty.
         ..Default::default()
     };
@@ -493,9 +453,7 @@ fn main() {
             Ok(active_id) => {
                 app.active_diet_cycle_id = Some(active_id);
                 // If an active cycle is found, fetch its recent logs
-                // This requires `app` to be mutable here, or call a method on `app` that takes `&mut self`
-                // For simplicity, we'll let the tab rendering handle initial fetch.
-            }
+                            }
             Err(rusqlite::Error::QueryReturnedNoRows) => {
                 // No active cycle, which is fine
             }
@@ -521,7 +479,6 @@ fn main() {
                     match exercise_result {
                         Ok((id, name_str)) => {
                             app.all_exercises_for_dropdown.push((id, name_str.clone()));
-                            app.available_exercise_names.push(name_str);
                         }
                         Err(e) => eprintln!("Failed to process exercise row: {}", e),
                     }
@@ -531,9 +488,6 @@ fn main() {
                  eprintln!("Failed to query exercises: {}", e);
             }
         }
-        // Initial fetch of recent weight logs if an active cycle exists
-        // This needs to be done after app is fully initialized and active_diet_cycle_id is set.
-        // The current logic in render_log_weight_tab handles fetching if recent_weight_logs is empty.
     } else {
         eprintln!("Failed to lock DB connection for initial load.");
     }
