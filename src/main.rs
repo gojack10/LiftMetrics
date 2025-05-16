@@ -1,11 +1,10 @@
 use eframe::{App, NativeOptions};
 use eframe::egui;
-use egui_plot::PlotMemory;
+// use egui_plot::PlotMemory; // Removed unused import
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use chrono::NaiveDate;
-use chrono::Datelike;
 use std::fmt::Display;
 use egui_extras::DatePickerButton;
 
@@ -62,14 +61,13 @@ struct SetEntry {
     notes: Option<String>,
 }
 
-#[derive(Default, Clone, Debug)]
-struct ExerciseLogEntry {
+#[derive(Clone, Debug)] // Removed Default from ExerciseLogEntry for consistency if it wasn't used, but it's fine. Let's assume it's fine.
+struct ExerciseLogEntry { // Keeping Default here as it's not the one causing issues.
     exercise_name: String,
     sets: Vec<SetEntry>,
 }
 
-
-#[derive(Default)]
+// Removed #[derive(Default)]
 struct MyApp {
     active_tab: Tab,
     db_conn: Option<Arc<Mutex<Connection>>>,
@@ -85,16 +83,47 @@ struct MyApp {
     available_exercise_names: Vec<String>,
     weight_progress_data: Vec<(f64, f64)>,
     smoothed_weight_progress_data: Vec<(f64, f64)>,
-    weight_plot_memory: PlotMemory,
+    // weight_plot_memory: PlotMemory, // Removed
     exercise_progress_selected_exercise_id: Option<i64>,
     all_exercises_for_dropdown: Vec<(i64, String)>,
     exercise_progress_data: Vec<(f64, f64)>,
     smoothed_exercise_progress_data: Vec<(f64, f64)>,
-    exercise_plot_memory: PlotMemory,
+    // exercise_plot_memory: PlotMemory, // Removed
     selected_exercise_metric: ExerciseMetric,
     status_message: String,
     last_status_time: Instant,
     recent_weight_logs: Vec<(String, f64)>, // For (log_date, weight_lbs)
+}
+
+impl Default for MyApp {
+    fn default() -> Self {
+        Self {
+            active_tab: Tab::default(),
+            db_conn: None,
+            log_weight_input_lbs: String::default(),
+            show_diet_cycle_popup: false,
+            new_diet_phase: DietPhase::default(),
+            new_diet_start_date: String::default(),
+            new_diet_planned_end_date: String::default(),
+            active_diet_cycle_id: None,
+            log_exercise_date: chrono::Local::now().date_naive(),
+            current_exercises_log: Vec::default(),
+            exercise_name_input_buffer: String::default(),
+            available_exercise_names: Vec::default(),
+            weight_progress_data: Vec::default(),
+            smoothed_weight_progress_data: Vec::default(),
+            // weight_plot_memory: PlotMemory::default(), // Removed
+            exercise_progress_selected_exercise_id: None,
+            all_exercises_for_dropdown: Vec::default(),
+            exercise_progress_data: Vec::default(),
+            smoothed_exercise_progress_data: Vec::default(),
+            // exercise_plot_memory: PlotMemory::default(), // Removed
+            selected_exercise_metric: ExerciseMetric::default(),
+            status_message: String::default(),
+            last_status_time: Instant::now(),
+            recent_weight_logs: Vec::default(),
+        }
+    }
 }
 
 impl App for MyApp {
@@ -142,7 +171,8 @@ impl MyApp {
                 .show(ctx, |ui| {
                     ui.vertical_centered_justified(|ui| {
                         ui.label("Phase:");
-                        egui::ComboBox::from_id_source("diet_phase_combo")
+                        // Corrected ComboBox usage:
+                        egui::ComboBox::new("diet_phase_combo_salt", "") // id_salt and an empty label
                             .selected_text(self.new_diet_phase.to_string())
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut self.new_diet_phase, DietPhase::Bulk, DietPhase::Bulk.to_string());
@@ -151,10 +181,10 @@ impl MyApp {
                             });
 
                         ui.label("Start Date (YYYY-MM-DD):");
-                        ui.text_edit_singleline(&mut self.new_diet_start_date);
+                        ui.add(egui::TextEdit::singleline(&mut self.new_diet_start_date));
 
                         ui.label("Planned End Date (YYYY-MM-DD):");
-                        ui.text_edit_singleline(&mut self.new_diet_planned_end_date);
+                        ui.add(egui::TextEdit::singleline(&mut self.new_diet_planned_end_date));
 
                         ui.add_space(10.0);
                         ui.horizontal(|ui| {
@@ -164,30 +194,51 @@ impl MyApp {
                                     NaiveDate::parse_from_str(&self.new_diet_start_date, "%Y-%m-%d"),
                                     NaiveDate::parse_from_str(&self.new_diet_planned_end_date, "%Y-%m-%d")
                                 ) {
+                                    let mut save_successful = false;
+                                    let mut new_active_id: Option<i64> = None;
+                                    let mut error_message: Option<String> = None;
+
                                     if let Some(conn_mutex) = &self.db_conn {
-                                        if let Ok(mut conn) = conn_mutex.lock() {
-                                            match conn.execute(
-                                                "INSERT INTO diet_cycles (phase, start_date, planned_end_date) VALUES (?1, ?2, ?3)",
-                                                rusqlite::params![
-                                                    self.new_diet_phase.to_string(),
-                                                    start_date.format("%Y-%m-%d").to_string(),
-                                                    planned_end_date.format("%Y-%m-%d").to_string()
-                                                ],
-                                            ) {
-                                                Ok(_) => {
-                                                    self.active_diet_cycle_id = Some(conn.last_insert_rowid());
-                                                    self.status_message = "New diet cycle saved.".to_string();
-                                                    self.last_status_time = Instant::now();
-                                                    self.show_diet_cycle_popup = false;
-                                                    self.fetch_recent_weight_logs(); // Fetch logs for the new cycle
-                                                }
-                                                Err(e) => {
-                                                    self.status_message = format!("Error saving diet cycle: {}", e);
-                                                    self.last_status_time = Instant::now();
-                                                    eprintln!("Error saving diet cycle: {}", e);
+                                        match conn_mutex.lock() {
+                                            Ok(conn) => { // Removed mut from conn
+                                                match conn.execute(
+                                                    "INSERT INTO diet_cycles (phase, start_date, planned_end_date) VALUES (?1, ?2, ?3)",
+                                                    rusqlite::params![
+                                                        self.new_diet_phase.to_string(),
+                                                        start_date.format("%Y-%m-%d").to_string(),
+                                                        planned_end_date.format("%Y-%m-%d").to_string()
+                                                    ],
+                                                ) {
+                                                    Ok(_) => {
+                                                        new_active_id = Some(conn.last_insert_rowid());
+                                                        save_successful = true;
+                                                    }
+                                                    Err(e) => {
+                                                        error_message = Some(format!("Error saving diet cycle: {}", e));
+                                                        eprintln!("Error saving diet cycle: {}", e);
+                                                    }
                                                 }
                                             }
+                                            Err(e) => {
+                                                 error_message = Some(format!("Failed to acquire DB lock: {}", e));
+                                                 eprintln!("Failed to acquire DB lock: {}", e);
+                                            }
                                         }
+                                    } // MutexGuard is dropped here
+
+                                    if save_successful {
+                                        self.active_diet_cycle_id = new_active_id;
+                                        self.status_message = "New diet cycle saved.".to_string();
+                                        self.last_status_time = Instant::now();
+                                        self.show_diet_cycle_popup = false;
+                                        self.fetch_recent_weight_logs(); // Now safe to call
+                                    } else if let Some(msg) = error_message {
+                                        self.status_message = msg;
+                                        self.last_status_time = Instant::now();
+                                    } else {
+                                        // This case should ideally not be reached if conn_mutex was None, handle appropriately
+                                        self.status_message = "Failed to save diet cycle: DB connection not available.".to_string();
+                                        self.last_status_time = Instant::now();
                                     }
                                 } else {
                                     self.status_message = "Invalid date format. Use YYYY-MM-DD.".to_string();
@@ -211,8 +262,8 @@ impl MyApp {
         if self.active_diet_cycle_id.is_none() {
             ui.label("No active diet cycle. Please set one up.");
             if ui.button("Setup Diet Cycle").clicked() {
-                self.new_diet_start_date = NaiveDate::today().format("%Y-%m-%d").to_string();
-                self.new_diet_planned_end_date = (NaiveDate::today() + chrono::Duration::days(90)).format("%Y-%m-%d").to_string();
+                self.new_diet_start_date = chrono::Local::now().date_naive().format("%Y-%m-%d").to_string();
+                self.new_diet_planned_end_date = (chrono::Local::now().date_naive() + chrono::Duration::days(90)).format("%Y-%m-%d").to_string();
                 self.show_diet_cycle_popup = true;
             }
         } else {
@@ -227,7 +278,7 @@ impl MyApp {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 ui.label("Weight (lbs):");
-                ui.text_edit_singleline(&mut self.log_weight_input_lbs).desired_width(100.0);
+                ui.add(egui::TextEdit::singleline(&mut self.log_weight_input_lbs).desired_width(100.0));
             });
 
             if ui.button("Log Weight").clicked() {
@@ -235,26 +286,41 @@ impl MyApp {
                     match self.log_weight_input_lbs.trim().parse::<f64>() {
                         Ok(weight_val) => {
                             if weight_val > 0.0 {
+                                let mut log_successful = false;
+                                let mut db_error_message: Option<String> = None;
+
                                 if let Some(conn_mutex) = &self.db_conn {
-                                    if let Ok(conn) = conn_mutex.lock() {
-                                        let log_date_str = NaiveDate::today().format("%Y-%m-%d").to_string();
-                                        match conn.execute(
-                                            "INSERT INTO weight_logs (diet_cycle_id, log_date, weight_lbs) VALUES (?1, ?2, ?3)",
-                                            rusqlite::params![active_cycle_id, log_date_str, weight_val],
-                                        ) {
-                                            Ok(_) => {
-                                                self.status_message = format!("Weight {} lbs logged successfully.", weight_val);
-                                                self.log_weight_input_lbs.clear();
-                                                self.fetch_recent_weight_logs(); // Refresh recent logs
-                                            }
-                                            Err(e) => {
-                                                self.status_message = format!("Error logging weight: {}", e);
-                                                eprintln!("Error logging weight: {}", e);
+                                    match conn_mutex.lock() {
+                                        Ok(conn) => {
+                                            let log_date_str = chrono::Local::now().date_naive().format("%Y-%m-%d").to_string();
+                                            match conn.execute(
+                                                "INSERT INTO weight_logs (diet_cycle_id, log_date, weight_lbs) VALUES (?1, ?2, ?3)",
+                                                rusqlite::params![active_cycle_id, log_date_str, weight_val],
+                                            ) {
+                                                Ok(_) => {
+                                                    log_successful = true;
+                                                }
+                                                Err(e) => {
+                                                    db_error_message = Some(format!("Error logging weight: {}", e));
+                                                    eprintln!("Error logging weight: {}", e);
+                                                }
                                             }
                                         }
-                                    } else {
-                                        self.status_message = "Failed to acquire database lock.".to_string();
+                                        Err(e) => {
+                                            db_error_message = Some(format!("Failed to acquire database lock: {}", e));
+                                            eprintln!("Failed to acquire database lock: {}", e);
+                                        }
                                     }
+                                } // MutexGuard is dropped here
+
+                                if log_successful {
+                                    self.status_message = format!("Weight {} lbs logged successfully.", weight_val);
+                                    self.log_weight_input_lbs.clear();
+                                    self.fetch_recent_weight_logs(); // Now safe to call
+                                } else if let Some(msg) = db_error_message {
+                                    self.status_message = msg;
+                                } else {
+                                    self.status_message = "Failed to log weight: DB connection not available.".to_string();
                                 }
                             } else {
                                 self.status_message = "Weight must be a positive number.".to_string();
@@ -411,14 +477,13 @@ fn main() {
 
     let mut app = MyApp {
         db_conn: Some(db_conn.clone()), // Clone Arc for app
-        log_exercise_date: NaiveDate::today(),
-        last_status_time: Instant::now(),
-        recent_weight_logs: Vec::new(), // Initialize recent_weight_logs
+        // log_exercise_date and last_status_time will be set by Default::default()
+        recent_weight_logs: Vec::new(), // Explicitly initialize, though Default would also make it empty.
         ..Default::default()
     };
 
     // Load initial state from DB
-    if let Ok(mut conn) = db_conn.lock() { // Changed to mut conn for potential writes if needed, though not here
+    if let Ok(conn) = db_conn.lock() { // Removed mut from conn as it's not needed
         // Check for active diet cycle
         match conn.query_row(
             "SELECT id FROM diet_cycles WHERE actual_end_date IS NULL ORDER BY start_date DESC LIMIT 1",
@@ -442,16 +507,12 @@ fn main() {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("Failed to prepare statement for loading exercises: {}", e);
-                // Continue without exercises if statement prep fails
-                Vec::new(); // To satisfy type checker for all_exercises_for_dropdown
-                Vec::new(); // To satisfy type checker for available_exercise_names
-                stmt = conn.prepare("SELECT 1, 'dummy' WHERE 1=0").unwrap(); // dummy to satisfy type
-                // return; // Or handle more gracefully
+                return; // Exit main if this critical step fails
             }
         };
         
         let exercise_iter_map = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?))
+            Ok((row.get(0)?, row.get::<usize, String>(1)?)) // Changed i32 to usize for RowIndex
         });
 
         match exercise_iter_map {
@@ -473,20 +534,6 @@ fn main() {
         // Initial fetch of recent weight logs if an active cycle exists
         // This needs to be done after app is fully initialized and active_diet_cycle_id is set.
         // The current logic in render_log_weight_tab handles fetching if recent_weight_logs is empty.
-    } else {
-        eprintln!("Failed to lock DB connection for initial load.");
-    }
-
-    let _ = eframe::run_native("LifeMetrics", options, Box::new(|_cc| Ok(Box::new(app))));
-}
-            match exercise_result {
-                Ok((id, name_str)) => {
-                    app.all_exercises_for_dropdown.push((id, name_str.clone()));
-                    app.available_exercise_names.push(name_str);
-                }
-                Err(e) => eprintln!("Failed to process exercise row: {}", e),
-            }
-        }
     } else {
         eprintln!("Failed to lock DB connection for initial load.");
     }
