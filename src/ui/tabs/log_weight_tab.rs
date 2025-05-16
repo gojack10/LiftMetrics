@@ -4,6 +4,7 @@ use egui_extras::DatePickerButton; // Added for date picker
 use rusqlite;
 use chrono;
 use std::time::Instant;
+use log::error;
 
 pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
     ui.heading("Log Weight");
@@ -57,36 +58,37 @@ pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
                                             }
                                             Err(e) => {
                                                 db_error_message = Some(format!("error logging weight: {}", e));
-                                                eprintln!("error logging weight: {}", e);
+                                                error!("error logging weight: {}", e);
                                             }
                                         }
                                     }
                                     Err(e) => {
                                         db_error_message = Some(format!("failed to acquire database lock: {}", e));
-                                        eprintln!("failed to acquire database lock: {}", e);
+                                        error!("failed to acquire database lock: {}", e);
                                     }
                                 }
                             }
 
                             if log_successful {
-                                app.status_message = format!("weight {} lbs logged successfully.", weight_val);
+                                app.console_messages.push(format!("[STATUS] weight {} lbs logged successfully.\n", weight_val));
                                 app.log_weight_input_lbs.clear();
                                 app.fetch_recent_weight_logs();
                             } else if let Some(msg) = db_error_message {
-                                app.status_message = msg;
+                                app.console_messages.push(format!("[STATUS] {}\n", msg));
                             } else {
-                                app.status_message = "failed to log weight: db connection not available.".to_string();
+                                // This case might need more specific error handling if there are other failure modes
+                                app.console_messages.push(format!("[STATUS] failed to log weight.\n"));
                             }
                         } else {
-                            app.status_message = "weight must be a positive number.".to_string();
+                            app.console_messages.push(format!("[STATUS] weight must be a positive number.\n"));
                         }
                     }
                     Err(_) => {
-                        app.status_message = "invalid weight input. please enter a number.".to_string();
+                        app.console_messages.push(format!("[STATUS] invalid weight input. please enter a number.\n"));
                     }
                 }
             } else {
-                app.status_message = "no active diet cycle to log weight against.".to_string();
+                app.console_messages.push(format!("[STATUS] no active diet cycle to log weight against.\n"));
             }
             app.last_status_time = Instant::now();
         }

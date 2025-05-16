@@ -9,3 +9,5 @@ eframe = "0.31.1"
 egui_extras = { version = "0.31.1", features = ["datepicker"] }
 egui_plot = "0.31.0"
 rusqlite = "0.35.0"
+log = "0.4"
+env_logger = "0.11"

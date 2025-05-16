@@ -4,6 +4,7 @@ use eframe::egui;
 use rusqlite;
 use chrono::NaiveDate;
 use std::time::Instant;
+use log::error;
 
 pub fn render(app: &mut MyApp, ctx: &egui::Context) {
     if app.show_diet_cycle_popup {
@@ -56,32 +57,33 @@ pub fn render(app: &mut MyApp, ctx: &egui::Context) {
                                                 }
                                                 Err(e) => {
                                                     error_message = Some(format!("error saving diet cycle: {}", e));
-                                                    eprintln!("error saving diet cycle: {}", e);
+                                                    error!("error saving diet cycle: {}", e);
                                                 }
                                             }
                                         }
                                         Err(e) => {
                                              error_message = Some(format!("failed to acquire db lock: {}", e));
-                                             eprintln!("failed to acquire db lock: {}", e);
+                                             error!("failed to acquire db lock: {}", e);
                                         }
                                     }
                                 } 
 
                                 if save_successful {
                                     app.active_diet_cycle_id = new_active_id;
-                                    app.status_message = "new diet cycle saved.".to_string();
+                                    app.console_messages.push(format!("[STATUS] new diet cycle saved.\n"));
                                     app.last_status_time = Instant::now();
                                     app.show_diet_cycle_popup = false;
                                     app.fetch_recent_weight_logs();
                                 } else if let Some(msg) = error_message {
-                                    app.status_message = msg;
+                                    app.console_messages.push(format!("[STATUS] {}\n", msg));
                                     app.last_status_time = Instant::now();
                                 } else {
-                                    app.status_message = "failed to save diet cycle: db connection not available.".to_string();
+                                    // This case might need more specific error handling if there are other failure modes
+                                    app.console_messages.push(format!("[STATUS] failed to save diet cycle.\n"));
                                     app.last_status_time = Instant::now();
                                 }
                             } else {
-                                app.status_message = "invalid date format. use yyyy-mm-dd.".to_string();
+                                app.console_messages.push(format!("[STATUS] invalid date format. use yyyy-mm-dd.\n"));
                                 app.last_status_time = Instant::now();
                             }
                         }
@@ -92,4 +94,4 @@ pub fn render(app: &mut MyApp, ctx: &egui::Context) {
                 });
             });
     }
-} 
+}

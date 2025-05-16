@@ -3,12 +3,15 @@ use eframe::egui;
 use egui::{FontDefinitions, FontFamily, FontData};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
+use log::error;
 
 
 mod db_init;
 mod types;
 mod app_state;
 mod ui;
+mod logging;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Default)]
 enum Tab {
@@ -34,6 +37,11 @@ enum ExerciseMetric {
 }
 
 fn main() {
+    let (sender, receiver) = mpsc::channel();
+
+    // Set up env_logger to use a custom writer that sends messages to the 'sender'
+    logging::init_logger(sender);
+
     let options = NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size(egui::Vec2::new(600.0, 800.0)),
@@ -42,7 +50,7 @@ fn main() {
     let database_path = "liftmetrics.db";
     if !std::path::Path::new(database_path).exists() {
         if let Err(e) = db_init::init(database_path) {
-            eprintln!("failed to initialize database: {}", e);
+            error!("failed to initialize database: {}", e);
             return;
         }
     }
@@ -50,7 +58,7 @@ fn main() {
     let db_conn = match Connection::open(database_path) {
         Ok(conn) => Arc::new(Mutex::new(conn)),
         Err(e) => {
-            eprintln!("failed to open database connection: {}", e);
+            error!("failed to open database connection: {}", e);
             return;
         }
     };
@@ -58,6 +66,9 @@ fn main() {
     let mut app = app_state::MyApp {
         db_conn: Some(db_conn.clone()),
         recent_weight_logs: Vec::new(),
+        // Pass the receiver to the app state
+        // TODO: Add receiver field to MyApp struct
+        log_receiver: receiver,
         ..Default::default()
     };
 
@@ -73,13 +84,13 @@ fn main() {
             Err(rusqlite::Error::QueryReturnedNoRows) => {
                 // No active cycle, which is fine
             }
-            Err(e) => eprintln!("failed to load active diet cycle: {}", e),
+            Err(e) => error!("failed to load active diet cycle: {}", e),
         }
 
         let mut stmt = match conn.prepare("SELECT id, name FROM exercises ORDER BY name COLLATE NOCASE") {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("failed to prepare statement for loading exercises: {}", e);
+                error!("failed to prepare statement for loading exercises: {}", e);
                 return;
             }
         };
@@ -95,16 +106,16 @@ fn main() {
                         Ok((id, name_str)) => {
                             app.all_exercises_for_dropdown.push((id, name_str.clone()));
                         }
-                        Err(e) => eprintln!("failed to process exercise row: {}", e),
+                        Err(e) => error!("failed to process exercise row: {}", e),
                     }
                 }
             }
             Err(e) => {
-                 eprintln!("failed to query exercises: {}", e);
+                 error!("failed to query exercises: {}", e);
             }
         }
     } else {
-        eprintln!("failed to lock db connection for initial load.");
+        error!("failed to lock db connection for initial load.");
     }
     if app.active_diet_cycle_id.is_some() {
         app.fetch_recent_weight_logs();

@@ -4,6 +4,8 @@ use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use chrono::NaiveDate;
+use std::sync::mpsc;
+use log::error;
 
 // Forward declare UI modules that will be called by impl App for MyApp
 // This assumes a src/ui/mod.rs will exist and declare these submodules.
@@ -25,6 +27,8 @@ pub struct MyApp {
     pub(crate) last_status_time: Instant,
     pub(crate) recent_weight_logs: Vec<(String, f64)>,
     pub(crate) previous_active_tab: Option<Tab>, // Added to track tab changes for date reset, made pub(crate)
+    pub(crate) console_messages: Vec<String>,
+    pub(crate) log_receiver: mpsc::Receiver<String>,
 }
 
 impl Default for MyApp {
@@ -45,6 +49,8 @@ impl Default for MyApp {
             status_message: String::default(),
             last_status_time: Instant::now(),
             recent_weight_logs: Vec::default(),
+            console_messages: Vec::default(),
+            log_receiver: mpsc::channel().1, // Dummy receiver for Default
         }
     }
 }
@@ -91,6 +97,14 @@ impl App for MyApp {
                 Tab::ExerciseProgress => crate::ui::tabs::exercise_progress_tab::render(self, ui, ctx),
             }
         });
+
+        // Render the console at the bottom
+        crate::ui::console::render(self, ctx);
+
+        // Receive and append log messages from the channel
+        while let Ok(message) = self.log_receiver.try_recv() {
+            self.console_messages.push(message);
+        }
     }
 }
 
@@ -115,7 +129,7 @@ impl MyApp {
                     ) {
                         Ok(s) => s,
                         Err(e) => {
-                            eprintln!("failed to prepare statement for recent logs: {}", e);
+                            error!("failed to prepare statement for recent logs: {}", e);
                             self.status_message = format!("error preparing to fetch recent logs: {}", e);
                             self.last_status_time = Instant::now();
                             return;
@@ -126,7 +140,7 @@ impl MyApp {
                     }) {
                         Ok(iter) => iter,
                         Err(e) => {
-                            eprintln!("failed to query recent logs: {}", e);
+                            error!("failed to query recent logs: {}", e);
                             self.status_message = format!("error fetching recent logs: {}", e);
                             self.last_status_time = Instant::now();
                             return;
@@ -140,7 +154,7 @@ impl MyApp {
                                 new_logs.push(log_entry);
                             }
                             Err(e) => {
-                                eprintln!("error processing recent log row: {}", e);
+                                error!("error processing recent log row: {}", e);
                                 self.status_message = format!("error processing recent log: {}", e);
                                 self.last_status_time = Instant::now();
                             }

@@ -90,7 +90,8 @@ Refine the schema using ISO8601 strings for dates/datetimes.
 
 - [ ] 1. **Diet Cycle Setup (Modal/Popup):** Implement UI for phase, start date, planned end date input. Add validation and DB insertion. Include "Skip for now" option.
 - [ ] 2. **Weight Input:** Implement text field for weight input, parse to `f64`, validate, and add "Log Weight" button.
-- [ ] 3. **On Log:** Insert into `weight_logs`, show confirmation, clear input field, consider showing last 3-5 entries.
+- [ ] 3. **On Log:** Insert into `weight_logs`, show confirmation
+- [ ] 4. ability to edit weight logs, delete weight logs
 
 **C. Log Exercise Tab:**
 
