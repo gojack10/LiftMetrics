@@ -1,0 +1,7 @@
+/target
+*.md
+.*
+*.txt
+*.db
+!docs/plan.md
+!.gitignore
