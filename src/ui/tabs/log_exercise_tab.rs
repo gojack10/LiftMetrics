@@ -1,7 +1,6 @@
 use crate::app_state::MyApp;
 use eframe::egui;
 use egui_extras::DatePickerButton;
-use chrono::NaiveDate; // Required for app.log_exercise_date.format
 
 pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
     ui.heading("Log Exercise");
@@ -18,4 +17,4 @@ pub fn render(app: &mut MyApp, ui: &mut egui::Ui, _ctx: &egui::Context) {
 
     ui.add_space(10.0);
     app.display_status_message(ui);
-} 
+}

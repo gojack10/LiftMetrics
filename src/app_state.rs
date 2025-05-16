@@ -1,6 +1,6 @@
 use crate::types::{Tab, DietPhase}; // ExerciseMetric not directly used yet here
 use eframe::{App, egui};
-use rusqlite::{Connection, Result as RusqliteResult};
+use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use chrono::NaiveDate;
@@ -140,4 +140,4 @@ impl MyApp {
              self.recent_weight_logs.clear();
         }
     }
-} 
+}
