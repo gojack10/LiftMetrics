@@ -68,7 +68,7 @@ impl App for MyApp {
 
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("LifeMetrics");
+            ui.heading("LiftMetrics");
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {

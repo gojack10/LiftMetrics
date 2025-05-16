@@ -1,5 +1,6 @@
 use eframe::NativeOptions;
 use eframe::egui;
+use egui::{FontDefinitions, FontFamily, FontData};
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 
@@ -38,7 +39,7 @@ fn main() {
             .with_inner_size(egui::Vec2::new(600.0, 800.0)),
         ..Default::default()
     };
-    let database_path = "lifemetrics.db";
+    let database_path = "liftmetrics.db";
     if !std::path::Path::new(database_path).exists() {
         if let Err(e) = db_init::init(database_path) {
             eprintln!("failed to initialize database: {}", e);
@@ -109,5 +110,20 @@ fn main() {
         app.fetch_recent_weight_logs();
     }
 
-    let _ = eframe::run_native("LifeMetrics", options, Box::new(|_cc| Ok(Box::new(app))));
+    let mut fonts = FontDefinitions::default();
+
+    fonts.font_data.insert(
+        "JetBrainsMonoNerdFont".to_owned(),
+        FontData::from_static(include_bytes!("ui/JetBrainsMonoNerdFont-Regular.ttf")).into(),
+    );
+
+    fonts.families.get_mut(&FontFamily::Proportional).unwrap()
+        .insert(0, "JetBrainsMonoNerdFont".to_owned());
+    fonts.families.get_mut(&FontFamily::Monospace).unwrap()
+        .insert(0, "JetBrainsMonoNerdFont".to_owned());
+
+    let _ = eframe::run_native("LiftMetrics", options, Box::new(|cc| {
+        cc.egui_ctx.set_fonts(fonts);
+        Ok(Box::new(app))
+    }));
 }
